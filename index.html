@@ -1,0 +1,310 @@
+<html>
+    <head>
+        <title></title>
+        <meta charset="UTF-8" />
+        <!-- Make sure you put this AFTER Leaflet's CSS -->
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+            integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+            crossorigin=""
+        />
+        <script
+            src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+            integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+            crossorigin=""
+        ></script>
+
+        <!-- bootstrap -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" />
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+        <!-- font-awsome -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+        <link rel="stylesheet" href="./index.css" />
+        <link
+            rel="stylesheet"
+            href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css"
+        />
+        <!-- Control Search -->
+        <link rel="stylesheet" href="./src/leaflet-search.css" />
+        <script src="https://unpkg.com/jquery@3.3.1/dist/jquery.js"></script>
+        <script src="https://unpkg.com/leaflet@1.3.0/dist/leaflet.js"></script>
+        <script src="./src/leaflet-search.js"></script>
+    </head>
+
+    <body>
+        <div id="issMap">
+            <i class="fa issMap" id="openTable"
+                ><img src="./images/list-svgrepo-com.svg" width="32" style="filter: drop-shadow(2px 2px 2px #000);" />
+            </i>
+        </div>
+
+        <div id="mydiv">
+            <div id="mydivheader">
+                <table style="width: 100%; height: 100%;">
+                    <tbody>
+                        <tr style="height: 45px;">
+                            <td valign="bottom">
+                                <div class="address-list">
+                                    <h4 class="address-title">List of addresses to lat/lon</h4>
+                                    <span class="closeIcon" onclick="closeButton()">&times;</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr height="100%">
+                            <td style="padding: 10px;">
+                                <div id="perfect-scrollbar" class="wrapper">
+                                    <table height="100%" class="table" style="word-break: break-all; padding: 1px;">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 5%;" class="border">ID</th>
+                                                <th style="width: 10%;" class="border">Name</th>
+                                                <th style="width: 13%;" class="border">Addr1</th>
+                                                <th style="width: 10%;" class="border">Addr2</th>
+                                                <th style="width: 7%;" class="border">Zip</th>
+                                                <th style="width: 13%;" class="border">Town</th>
+                                                <th style="width: 10%;" class="border">Country</th>
+                                                <th style="width: 15%;" class="border">Lat</th>
+                                                <th style="width: 15%;" class="border">Lon</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tableData" style="font-size: 12px;"></tbody>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div style="display: flex; float: right; padding: 10px;">
+                                    <input type="file" id="files" style="display: none;" />
+                                    <button type="button" style="width: 100px;" class="btn btn-success" onclick="files.click();">
+                                        Load</button
+                                    >&nbsp;&nbsp;&nbsp;
+
+                                    <button type="button" style="width: 100px;" class="btn btn-success" onclick="update()">Update</button
+                                    >&nbsp;&nbsp;&nbsp;
+                                    <button type="button" style="width: 100px;" class="btn btn-success" onclick="download()">
+                                        Download
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <script>
+            //map draw
+            const mymap = new L.Map('issMap', { zoom: 6, center: new L.latLng([47, 13]) }); //set center from first location
+            mymap.addLayer(new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')); //base layer
+            //map popup
+            const popup = L.popup();
+
+            function onMapClick(e) {
+                popup
+                    .setLatLng(e.latlng)
+                    .setContent('You clicked the map at ' + e.latlng.toString())
+                    .openOn(mymap);
+            }
+            mymap.on('click', onMapClick);
+            //draw Icon
+            const markersLayer = new L.LayerGroup(); //layer contain searched elements
+            mymap.addLayer(markersLayer);
+
+            //search Icon
+            const controlSearch = new L.Control.Search({ layer: markersLayer, initial: false, position: 'topright' });
+            mymap.addControl(controlSearch);
+
+            //csv download
+            function download() {
+                const tableData = document.getElementById('tableData');
+                let csv = '';
+                for (const rec of tableData.childNodes) {
+                    const tds = rec.childNodes;
+                    csv += `${tds[0].innerText}, ${tds[1].innerText}, ${tds[2].innerText}, ${tds[3].innerText}, ${tds[4].innerText}, ${tds[5].innerText}, ${tds[6].innerText}, ${tds[7].innerText}, ${tds[8].innerText}\n`;
+                }
+                let blob = new Blob([csv], {
+                    type: 'text/csv; charset=utf-8'
+                });
+                const downloadUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = 'result.csv';
+                a.target = '_blank';
+                a.click();
+                URL.revokeObjectURL(downloadUrl);
+            }
+
+            //csv update lat/lon
+            async function update() {
+                console.log('start update.');
+                const tableData = document.getElementById('tableData');
+                for (const rec of tableData.childNodes) {
+                    const tds = rec.childNodes;
+                    if (tds[7].innerText !== '') {
+                        // already get latitude
+                        continue;
+                    }
+                    const query = rec.getAttribute('query');
+                    try {
+                        const data = await tryToGetGeoData(query);
+                        tds[7].innerText = data[0].lat;
+                        tds[8].innerText = data[0].lon;
+                        rec.setAttribute('query', `${query}, ${data[0].lat}, ${data[0].lon}`);
+                        rec.classList.add('updated');
+
+                        const makeArray = { loc: [data[0].lat, data[0].lon], title: tds[1].innerText };
+
+                        const title = makeArray.title, //value searched
+                            loc = makeArray.loc, //position found
+                            marker = new L.Marker(new L.latLng(loc), { title: title }); //se property searched
+
+                        marker.bindPopup('Name: ' + title + '<br>' + 'Lat/Lon:' + '(' + data[0].lat + ', ' + data[0].lon + ')');
+                        markersLayer.addLayer(marker);
+                    } catch (e) {
+                        alert('Many requests! You should do it some later.', e);
+                        break;
+                    }
+                }
+            }
+            //search Icon by tr
+            function makeIcon(name) {
+                console.log(window.event, name);
+                const tr = window.event.target.parentNode;
+                if (tr) {
+                    tr.parentNode.childNodes.forEach((t) => t.classList.remove('selected'));
+                    tr.classList.add('selected');
+                }
+                controlSearch.searchText(name);
+                controlSearch._handleSubmit();
+            }
+
+            function sleep(time) {
+                return new Promise((resolve) => {
+                    setTimeout(() => resolve(), time);
+                });
+            }
+            function tryToGetGeoData(query, tryCount = 3) {
+                console.log(query);
+                return new Promise(async (resolve, reject) => {
+                    function getData() {
+                        // const proxyurl = 'https://cors-anywhere.herokuapp.com/';
+                        const proxyurl = '';
+                        $.get(proxyurl + 'http://nominatim.openstreetmap.org/search?format=json&q=' + query)
+                            .done(function (data) {
+                                resolve(data);
+                            })
+                            .fail(async function (err) {
+                                await sleep(500);
+                                if (tryCount-- > 0) {
+                                    getData();
+                                } else {
+                                    reject('Error in gettin geo data : ', err);
+                                }
+                            });
+                    }
+                    getData();
+                });
+            }
+            function clearTable() {
+                const tableData = document.getElementById('tableData');
+                tableData.innerHTML = '';
+            }
+            function addTable(id, name, address1, address2, plz, town, country, lat, lon) {
+                const tableData = document.getElementById('tableData');
+                const query = `${country}, ${plz}, ${town}, ${address1} ${address2}`;
+                tableData.innerHTML += `<tr query="${query}" onclick="makeIcon('${name}')"><td>${id}<td>${name}<td>${address1}<td>${address2}<td>${plz}<td>${town}<td>${country}<td>${lat}<td>${lon}</tr>`;
+            }
+            async function getGeoDataFromCSVAndPrintToTable(csv) {
+                clearTable();
+                const rows = csv.split('\n');
+                for (let i = 1; i < rows.length; i++) {
+                    console.log('rows----', rows);
+                    if (rows[i] !== '') {
+                        const rec = rows[i].split(';');
+                        addTable(rec[0], rec[1], rec[2], rec[3], rec[4], rec[5], 'Austria', '', '');
+                    }
+                }
+            }
+            //parsing csv
+            document.getElementById('files').addEventListener('change', upload, false);
+            function upload(e) {
+                const data = [];
+                const file = e.target.files[0];
+                const reader = new FileReader();
+
+                reader.readAsText(file, 'ISO-8859-1');
+                reader.onload = function (e) {
+                    getGeoDataFromCSVAndPrintToTable(e.target.result);
+                };
+            }
+
+            //open table
+            const ele = document.getElementById('openTable');
+            if (ele) {
+                ele.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    console.log(event);
+                    const isOpened = document.getElementById('mydiv');
+                    console.log(isOpened.style.display);
+                    isOpened.style.display = isOpened.style.display !== 'none' ? 'none' : 'block';
+                });
+            }
+            //close button
+            function closeButton() {
+                const isClosed = document.getElementById('mydiv');
+                isClosed.style.display = 'none';
+            }
+            //draggable div
+            dragElement(document.getElementById('mydiv'));
+
+            function dragElement(elmnt) {
+                var pos1 = 0,
+                    pos2 = 0,
+                    pos3 = 0,
+                    pos4 = 0;
+                if (document.getElementById(elmnt.id + 'header')) {
+                    /* if present, the header is where you move the DIV from:*/
+                    document.getElementById(elmnt.id + 'header').onmousedown = dragMouseDown;
+                } else {
+                    /* otherwise, move the DIV from anywhere inside the DIV:*/
+                    elmnt.onmousedown = dragMouseDown;
+                }
+
+                function dragMouseDown(e) {
+                    e = e || window.event;
+                    e.preventDefault();
+                    // get the mouse cursor position at startup:
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    document.onmouseup = closeDragElement;
+                    // call a function whenever the cursor moves:
+                    document.onmousemove = elementDrag;
+                }
+
+                function elementDrag(e) {
+                    e = e || window.event;
+                    e.preventDefault();
+                    // calculate the new cursor position:
+                    pos1 = pos3 - e.clientX;
+                    pos2 = pos4 - e.clientY;
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    // set the element's new position:
+                    elmnt.style.top = elmnt.offsetTop - pos2 + 'px';
+                    elmnt.style.left = elmnt.offsetLeft - pos1 + 'px';
+                }
+
+                function closeDragElement() {
+                    /* stop moving when mouse button is released:*/
+                    document.onmouseup = null;
+                    document.onmousemove = null;
+                }
+            }
+        </script>
+    </body>
+</html>
